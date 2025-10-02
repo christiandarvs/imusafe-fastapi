@@ -10,18 +10,22 @@ model = YOLO("best.pt")
 
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
-    # Save uploaded file temporarily
+    # Save uploaded image temporarily
+    contents = await file.read()
     temp_file = f"temp_{file.filename}"
-    with open(temp_file, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    with open(temp_file, "wb") as f:
+        f.write(contents)
 
-    # Run YOLO inference
-    results = model.predict(temp_file, imgsz=640, conf=0.5)
+    # Run YOLO prediction
+    results = model.predict(temp_file)
 
-    # Clean up
+    accident_detected = False
+    for r in results:
+        if len(r.boxes) > 0:  # ✅ only check if detections exist
+            if any(cls.item() == 0 for cls in r.boxes.cls):
+                accident_detected = True
+
     os.remove(temp_file)
 
-    # Extract labels
-    accident_detected = any(r.boxes.cls[0].item() == 0 for r in results)  # adjust based on your class index
-    
-    return {"accident_detected": bool(accident_detected)}
+    return {"accident_detected": accident_detected}
+
