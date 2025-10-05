@@ -8,6 +8,9 @@ app = FastAPI()
 # Load YOLO model once
 model = YOLO("best.pt")
 
+# Confidence threshold (tune as needed)
+CONF_THRESHOLD = 0.7
+
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", dir="/tmp") as tmp:
@@ -27,15 +30,16 @@ async def predict(file: UploadFile = File(...)):
                 class_id = int(cls.item())
                 confidence = float(conf.item())
 
-                detections.append({
-                    "class_id": class_id,
-                    "label": model.names[class_id] if hasattr(model, "names") else str(class_id),
-                    "confidence": confidence,
-                    "bbox": [x1, y1, x2, y2]
-                })
+                # Only keep detections above threshold
+                if confidence >= CONF_THRESHOLD:
+                    detections.append({
+                        "class_id": class_id,
+                        "label": model.names[class_id] if hasattr(model, "names") else str(class_id),
+                        "confidence": confidence,
+                    })
 
-                if class_id == 0:  # accident class
-                    accident_detected = True
+                    if class_id == 0:  # accident class
+                        accident_detected = True
 
     os.remove(temp_file)
 
