@@ -22,54 +22,45 @@ os.makedirs(ANNOTATED_DIR, exist_ok=True)
 async def predict(file: UploadFile = File(...)):
     # Save uploaded file to temp
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", dir="/tmp") as tmp:
-        contents = await file.read()
-        tmp.write(contents)
+        tmp.write(await file.read())
         temp_file = tmp.name
 
     # Run YOLO prediction
-    results = model.predict(temp_file, conf=CONF_THRESHOLD, save=False)
+    results = model.predict(temp_file, conf=CONF_THRESHOLD, save=True)  # save=True generates runs/detect/expX/
 
     accident_detected = False
     detections = []
 
-    # Annotated file path
+    # Prepare annotated filename
     unique_filename = f"{uuid.uuid4().hex}.jpg"
     annotated_path = os.path.join(ANNOTATED_DIR, unique_filename)
 
     for r in results:
+        # Collect detections
         if len(r.boxes) > 0:
             for box, cls, conf in zip(r.boxes.xyxy, r.boxes.cls, r.boxes.conf):
-                x1, y1, x2, y2 = [float(x) for x in box.tolist()]
-                class_id = int(cls.item())
                 confidence = float(conf.item())
-
-                # Only keep detections above threshold
+                class_id = int(cls.item())
                 if confidence >= CONF_THRESHOLD:
                     detections.append({
                         "class_id": class_id,
                         "label": model.names[class_id] if hasattr(model, "names") else str(class_id),
                         "confidence": confidence,
                     })
-
                     if class_id == 0:  # accident class
                         accident_detected = True
 
-        # Save annotated image
-        r.save(filename=annotated_path)
+        # r.save() saves into runs/detect/expX/, so move the file manually
+        saved_image = r.plot()  # returns numpy array of annotated image
+        import cv2
+        cv2.imwrite(annotated_path, saved_image)
 
     # Clean up temp file
     os.remove(temp_file)
 
+    SERVER_URL = "http://52.64.112.148:8000/"
     return {
         "accident_detected": accident_detected,
         "detections": detections,
-        "annotated_image_url": f"/annotated/{unique_filename}"
+        "annotatedImageUrl": f"{SERVER_URL}/annotated/{unique_filename}"
     }
-
-# Serve annotated images
-@app.get("/annotated/{filename}")
-async def get_annotated_image(filename: str):
-    filepath = os.path.join(ANNOTATED_DIR, filename)
-    if not os.path.exists(filepath):
-        return {"error": "File not found"}
-    return FileResponse(filepath)
