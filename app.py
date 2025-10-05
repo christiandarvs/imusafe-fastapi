@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles 
 from ultralytics import YOLO
 import os
 import tempfile
@@ -18,6 +19,9 @@ CONF_THRESHOLD = 0.7
 ANNOTATED_DIR = "annotated"
 os.makedirs(ANNOTATED_DIR, exist_ok=True)
 
+# Serve annotated images
+app.mount("/annotated", StaticFiles(directory=ANNOTATED_DIR), name="annotated")
+
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     # Save uploaded file to temp
@@ -26,7 +30,7 @@ async def predict(file: UploadFile = File(...)):
         temp_file = tmp.name
 
     # Run YOLO prediction
-    results = model.predict(temp_file, conf=CONF_THRESHOLD, save=True)  # save=True generates runs/detect/expX/
+    results = model.predict(temp_file, conf=CONF_THRESHOLD, save=True)
 
     accident_detected = False
     detections = []
@@ -50,8 +54,8 @@ async def predict(file: UploadFile = File(...)):
                     if class_id == 0:  # accident class
                         accident_detected = True
 
-        # r.save() saves into runs/detect/expX/, so move the file manually
-        saved_image = r.plot()  # returns numpy array of annotated image
+        # Save annotated image
+        saved_image = r.plot()  # returns numpy array
         import cv2
         cv2.imwrite(annotated_path, saved_image)
 
