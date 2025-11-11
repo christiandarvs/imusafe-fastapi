@@ -191,7 +191,7 @@ async def predict(file: UploadFile = File(...)):
 
     os.remove(temp_file)
 
-    SERVER_URL = "http://52.64.112.148:8000"
+    SERVER_URL = "http://52.64.92.90:8000"
     return {
         "accident_detected": accident_detected,
         "severity": final_severity,
