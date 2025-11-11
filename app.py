@@ -37,7 +37,7 @@ print("✅ Models loaded successfully.")
 # 3. Directories
 # ====================================================
 CONF_THRESHOLD = 0.7
-ANNOTATED_DIR = "annotated"
+ANNOTATED_DIR = "/home/ubuntu/imusafe-api/annotated"
 os.makedirs(ANNOTATED_DIR, exist_ok=True)
 app.mount("/annotated", StaticFiles(directory=ANNOTATED_DIR), name="annotated")
 
